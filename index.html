@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aplikasi Enkripsi-Dekripsi</title>
+<style>
+    body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-image: url('https://i.ibb.co/q0Gd4cC/kaitlyn-baker-v-ZJd-Yl5-JVXY-unsplash.jpg'); 
+    background-size: cover;
+    background-position: center;
+    }
+
+    .container {
+    max-width: 500px;
+    padding: 20px;
+    background-color: rgba(218, 218, 218, 0.555); 
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(90%); 
+}
+
+    h1 {
+        text-align: center;
+        color: #333;
+    }
+
+    input[type="password"], input[type="text"], textarea {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
+
+    button {
+        width: 30%;
+        padding: 10px;
+        background-color: #391303;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    button:hover {
+        background-color: #730101;
+    }
+
+    textarea {
+        resize: vertical;
+    }
+
+    .label {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+</style>
+<script>
+    async function encrypt() {
+    const password = document.getElementById("password").value;
+    const message = document.getElementById("message").value;
+
+    // Generate key from password
+    const key = await getKey(password);
+
+    // Encrypt message
+    const encryptedMessage = await encryptMessage(message, key);
+    document.getElementById("result").value = encryptedMessage;
+}
+
+async function decrypt() {
+    const password = document.getElementById("password").value;
+    const encryptedMessage = document.getElementById("message").value;
+
+    // Generate key from password
+    const key = await getKey(password);
+
+    // Decrypt message
+    const decryptedMessage = await decryptMessage(encryptedMessage, key);
+    document.getElementById("result").value = decryptedMessage;
+}
+
+async function getKey(password) {
+    const encoder = new TextEncoder();
+    const encodedPassword = encoder.encode(password);
+
+    // Derive key using PBKDF2
+    const key = await crypto.subtle.importKey(
+        "raw",
+        encodedPassword,
+        { name: "PBKDF2" },
+        false,
+        ["deriveBits", "deriveKey"]
+    );
+
+    return crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: new Uint8Array(16), // Use a random salt
+            iterations: 100000,
+            hash: "SHA-256"
+        },
+        key,
+        { name: "AES-CBC", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+}
+
+async function encryptMessage(message, key) {
+    const encoder = new TextEncoder();
+    const encodedMessage = encoder.encode(message);
+
+    // Generate random IV
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+
+    // Encrypt message
+    const encryptedData = await crypto.subtle.encrypt(
+        { name: "AES-CBC", iv: iv },
+        key,
+        encodedMessage
+    );
+
+    // Combine IV and encrypted data
+    const encryptedMessage = new Uint8Array(iv.length + encryptedData.byteLength);
+    encryptedMessage.set(iv);
+    encryptedMessage.set(new Uint8Array(encryptedData), iv.length);
+
+    // Encode to base64
+    return btoa(String.fromCharCode(...encryptedMessage));
+}
+
+async function decryptMessage(encryptedMessage, key) {
+    // Decode from base64
+    const encryptedData = Uint8Array.from(atob(encryptedMessage), c => c.charCodeAt(0));
+
+    // Split IV and encrypted data
+    const iv = encryptedData.slice(0, 16);
+    const data = encryptedData.slice(16);
+
+    // Decrypt message
+    const decryptedData = await crypto.subtle.decrypt(
+        { name: "AES-CBC", iv: iv },
+        key,
+        data
+    );
+
+    // Decode message
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedData);
+}
+</script>
+</head>
+<body>
+<div class="container">
+    <h1>Aplikasi Enkripsi-Dekripsi</h1>
+    <label for="password">Password:</label>
+    <input type="text" id="password"><br><br>
+    <label for="message">Pesan:</label><br>
+    <textarea id="message" rows="3" cols="50"></textarea><br><br>
+    <button onclick="encrypt()">Enkripsi</button>
+    <button onclick="decrypt()">Dekripsi</button><br><br>
+    <label for="result">Hasil:</label><br>
+    <textarea id="result" rows="3" cols="50" readonly></textarea>
+</div>
+</body>
+</html>
